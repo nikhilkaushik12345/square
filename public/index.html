@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login with Square</title>
+
+<script>
+function getAuthorizationCodeFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get("code");
+}
+
+function loginWithSquare() {
+  const authUrl =
+    "https://mcp.squareup.com/authorize" +
+    "?client_id=gjxgLkmUnkj07yeG" +
+    "&redirect_uri=" + encodeURIComponent("http://127.0.0.1:3000/callback") +
+    "&response_type=code" +
+    "&code_challenge=HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU" +
+    "&code_challenge_method=S256";
+
+  window.location.href = authUrl;
+}
+
+async function getAccessToken(code) {
+  try {
+    const res = await fetch("/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code })
+    });
+
+    const data = await res.json();
+    document.getElementById("authorization-code").textContent =
+      "Access Token Processed";
+    document.getElementById("user-info").textContent =
+      JSON.stringify(data, null, 2);
+
+  } catch (err) {
+    document.getElementById("authorization-code").textContent =
+      "Error: " + err;
+  }
+}
+
+window.onload = () => {
+  const code = getAuthorizationCodeFromUrl();
+
+  if (!code) {
+    loginWithSquare();
+    return;
+  }
+
+  document.getElementById("authorization-code").textContent =
+    "Authorization Code: " + code;
+
+  getAccessToken(code);
+};
+</script>
+</head>
+
+<body>
+<h1>Login with Square</h1>
+<button onclick="loginWithSquare()">Login</button>
+
+<p id="authorization-code"></p>
+
+<h2>User Information</h2>
+<pre id="user-info"></pre>
+</body>
+</html>
