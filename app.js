@@ -2,75 +2,83 @@ import express from "express";
 import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
+import { spawn } from "child_process"; // Import spawn
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public"))); // serves index.html
+app.use(express.static(path.join(__dirname, "public")));
 
-// OAuth callback
-app.get("/callback", (req, res) => {
-  res.redirect("/?code=" + req.query.code);
-});
+const CLIENT_ID = "4RyTgR2EVMbRKlfD";
+const CLIENT_SECRET = "EXQslIrwVRFT6Degkl9Cubsfq1cJQPsO";
+const REDIRECT_URI = "https://127.0.0.1";
+const CODE_VERIFIER = "O8cEmIWIOAtvEr6fdFzjnM1q-lTRmGS7GPwcLU8ceSg";
 
-// Exchange code + call Square MCP
 app.post("/exchange", async (req, res) => {
-  try {
-    const { code } = req.body;
+    try {
+        const { code } = req.body;
+        console.log("[+] Exchanging code:", code);
 
-    const params = new URLSearchParams();
-    params.append("grant_type", "authorization_code");
-    params.append("code", code);
-    params.append("redirect_uri", "http://127.0.0.1:3000/callback");
-    params.append("client_id", "gjxgLkmUnkj07yeG");
-    params.append("client_secret", "NBLBjlVT52Ykhy8QU7YD5jsg0aNlVjpG");
-    params.append(
-      "code_verifier",
-      "O8cEmIWIOAtvEr6fdFzjnM1q-lTRmGS7GPwcLU8ceSg"
-    );
+        const params = new URLSearchParams();
+        params.append("grant_type", "authorization_code");
+        params.append("code", code);
+        params.append("redirect_uri", REDIRECT_URI);
+        params.append("client_id", CLIENT_ID);
+        params.append("client_secret", CLIENT_SECRET);
+        params.append("code_verifier", CODE_VERIFIER);
 
-    // 1️⃣ Exchange authorization code for access token
-    const tokenRes = await fetch("https://mcp.squareup.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Accept": "application/json"
-      },
-      body: params.toString()
-    });
+        const tokenRes = await fetch("https://mcp.squareup.com/token", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json"
+            },
+            body: params.toString()
+        });
 
-    const token = await tokenRes.json();
-    if (!token.access_token) {
-      return res.status(400).json(token);
+        const tokenData = await tokenRes.json();
+        
+        if (!tokenData.access_token) {
+            return res.status(400).json(tokenData);
+        }
+
+        console.log("[+] Access Token retrieved!");
+        console.log("[+] Starting Python MCP Client...");
+
+        // ========================================================
+        // EXECUTE PYTHON SCRIPT WITH THE TOKEN
+        // ========================================================
+        const pythonProcess = spawn("python", ["mcp_client.py", tokenData.access_token]);
+
+        let pythonOutput = "";
+
+        pythonProcess.stdout.on("data", (data) => {
+            const output = data.toString();
+            console.log(output); // Print to Node console
+            pythonOutput += output;
+        });
+
+        pythonProcess.stderr.on("data", (data) => {
+            console.error(`[PYTHON ERROR]: ${data}`);
+            pythonOutput += `[ERROR] ${data}`;
+        });
+
+        pythonProcess.on("close", (code) => {
+            console.log(`[+] Python script finished with code ${code}`);
+            
+            // Send both the token AND the python logs back to the browser
+            res.json({
+                token_data: tokenData,
+                mcp_logs: pythonOutput
+            });
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
     }
-
-    // 2️⃣ Call Square MCP (example: tools/list)
-    const mcpRes = await fetch("https://mcp.squareup.com/mcp", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token.access_token}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "tools/list"
-      })
-    });
-
-    const data = await mcpRes.json();
-    res.json(data);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log("Square MCP app running on port", PORT)
-);
+app.listen(3000, () => console.log("Server running: http://localhost:3000"));
