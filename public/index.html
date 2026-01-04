@@ -3,56 +3,71 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login with Square</title>
+<title>Square MCP Automator</title>
+<style>
+    body { font-family: monospace; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #222; color: #eee; }
+    .container { background: #333; padding: 2rem; border-radius: 8px; }
+    input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; background: #444; color: #fff; border: 1px solid #555; }
+    button { background: #00d084; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #00a065; }
+    pre { background: #000; color: #0f0; padding: 1rem; overflow-x: auto; white-space: pre-wrap; height: 400px; overflow-y: scroll; border: 1px solid #444; }
+</style>
 <script>
-function getAuthorizationCodeFromUrl() {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('code');
-}
+    const CLIENT_ID = "4RyTgR2EVMbRKlfD";
+    const REDIRECT_URI = "https://127.0.0.1";
+    const CODE_CHALLENGE = "HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU"; 
 
-function loginWithSquare() {
-  const authUrl =
-    "https://mcp.squareup.com/authorize" +
-    "?client_id=4RyTgR2EVMbRKlfD" +
-    "&redirect_uri=" + encodeURIComponent("https://127.0.0.1") +
-    "&response_type=code" +
-    "&code_challenge=HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU" +
-    "&code_challenge_method=S256";
+    function openAuthPopup() {
+        const authUrl = "https://mcp.squareup.com/authorize" +
+            "?client_id=" + CLIENT_ID +
+            "&redirect_uri=" + encodeURIComponent(REDIRECT_URI) +
+            "&response_type=code" +
+            "&code_challenge=" + CODE_CHALLENGE +
+            "&code_challenge_method=S256";
+        window.open(authUrl, "SquareAuth", "width=600,height=800");
+    }
 
-  window.location.href = authUrl;
-}
-
-async function getAccessToken(code) {
-  try {
-    const res = await fetch("/exchange", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code })
-    });
-    const data = await res.json();
-    document.getElementById("authorization-code").textContent = "Access Token Processed";
-    document.getElementById("user-info").textContent = JSON.stringify(data, null, 2);
-  } catch (err) {
-    document.getElementById("authorization-code").textContent = "Error: " + err;
-  }
-}
-
-window.onload = () => {
-  const code = getAuthorizationCodeFromUrl();
-  if (!code) {
-    loginWithSquare();
-    return;
-  }
-  document.getElementById("authorization-code").textContent = "Authorization Code: " + code;
-  getAccessToken(code);
-};
+    async function runFlow() {
+        const code = document.getElementById("auth-code").value.trim();
+        const output = document.getElementById("output");
+        
+        if (!code) { alert("Paste code first!"); return; }
+        
+        output.textContent = "1. Exchanging Token...\n2. Launching Python MCP Client...\n(This may take a few seconds)...\n";
+        
+        try {
+            const res = await fetch("/exchange", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code })
+            });
+            
+            const data = await res.json();
+            
+            if (data.mcp_logs) {
+                output.textContent = "=== PYTHON EXECUTION LOGS ===\n" + data.mcp_logs;
+            } else {
+                output.textContent = JSON.stringify(data, null, 2);
+            }
+        } catch (e) {
+            output.textContent = "Error: " + e.message;
+        }
+    }
 </script>
 </head>
 <body>
-<h1>Login with Square</h1>
-<button onclick="loginWithSquare()">Login</button>
-<p id="authorization-code"></p>
-<h2>User Information</h2>
-<pre id="user-info"></pre>
+<div class="container">
+    <h1>Square MCP Auto-Runner</h1>
+    
+    <h3>Step 1: Auth</h3>
+    <button onclick="openAuthPopup()">Open Popup</button>
+    
+    <h3>Step 2: Paste Code & Run</h3>
+    <input type="text" id="auth-code" placeholder="Paste code=... here">
+    <button onclick="runFlow()">Generate Token & Run Python</button>
+
+    <h3>Step 3: Execution Logs</h3>
+    <pre id="output">Waiting...</pre>
+</div>
 </body>
 </html>
