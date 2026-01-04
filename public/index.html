@@ -3,78 +3,125 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Square MCP Automation</title>
-<style>
-    body { font-family: monospace; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #222; color: #eee; }
-    .container { background: #333; padding: 2rem; border-radius: 8px; }
-    input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; background: #444; color: #fff; border: 1px solid #555; }
-    button { background: #00d084; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; font-size: 1rem; }
-    button:hover { background: #00a065; }
-    pre { background: #000; color: #0f0; padding: 1rem; overflow-x: auto; white-space: pre-wrap; height: 500px; overflow-y: scroll; border: 1px solid #444; }
-    .step { margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 20px; }
-</style>
-<script>
-    const CLIENT_ID = "4RyTgR2EVMbRKlfD";
-    const REDIRECT_URI = "https://127.0.0.1";
-    const CODE_CHALLENGE = "HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU"; 
+<title>Login with Square</title>
 
-    function openAuthPopup() {
-        const authUrl = "https://mcp.squareup.com/authorize" +
-            "?client_id=" + CLIENT_ID +
-            "&redirect_uri=" + encodeURIComponent(REDIRECT_URI) +
-            "&response_type=code" +
-            "&code_challenge=" + CODE_CHALLENGE +
-            "&code_challenge_method=S256";
-        window.open(authUrl, "SquareAuth", "width=600,height=800");
+<style>
+    body {
+        font-family: monospace;
+        background: #222;
+        color: #eee;
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+    }
+    button {
+        background: #00d084;
+        border: none;
+        padding: 10px 20px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    button:hover {
+        background: #00a065;
+    }
+    input {
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        background: #333;
+        color: #fff;
+        border: 1px solid #555;
+    }
+    pre {
+        background: #000;
+        color: #0f0;
+        padding: 15px;
+        margin-top: 20px;
+        height: 400px;
+        overflow-y: auto;
+        border: 1px solid #444;
+    }
+</style>
+
+<script>
+    const AUTH_URL =
+        "https://mcp.squareup.com/authorize" +
+        "?client_id=4RyTgR2EVMbRKlfD" +
+        "&redirect_uri=" + encodeURIComponent("https://127.0.0.1") +
+        "&response_type=code" +
+        "&code_challenge=HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU" +
+        "&code_challenge_method=S256";
+
+    function loginWithSquare() {
+        window.location.href = AUTH_URL;
     }
 
-    async function runFlow() {
+    function getAuthorizationCodeFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get("code");
+    }
+
+    async function exchangeCode() {
         const code = document.getElementById("auth-code").value.trim();
         const output = document.getElementById("output");
-        
-        if (!code) { alert("Please paste the authorization code!"); return; }
-        
-        output.textContent = "> Exchanging Token...\n> Connecting to MCP Server (HTTP/2)...\n> Sending 'tools/list'...\n> Sending 'Create Customer'...\n\n(Please wait...)\n";
-        
+
+        if (!code) {
+            alert("Authorization code required");
+            return;
+        }
+
+        output.textContent = "> Exchanging authorization code...\n";
+
         try {
             const res = await fetch("/exchange", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ code })
             });
-            
+
             const data = await res.json();
-            
+
             if (data.mcp_logs) {
                 output.textContent = "=== MCP EXECUTION LOGS ===\n\n" + data.mcp_logs;
             } else {
-                output.textContent = "Error or Unexpected Response:\n" + JSON.stringify(data, null, 2);
+                output.textContent = JSON.stringify(data, null, 2);
             }
-        } catch (e) {
-            output.textContent = "Network Error: " + e.message;
+        } catch (err) {
+            output.textContent = "Network Error: " + err.message;
         }
     }
+
+    window.onload = () => {
+        const code = getAuthorizationCodeFromUrl();
+        if (code) {
+            document.getElementById("auth-code").value = code;
+            document.getElementById("status").textContent =
+                "Authorization code detected from redirect.";
+        }
+    };
 </script>
 </head>
-<body>
-<div class="container">
-    <h1>Square MCP Auto-Runner (Node.js Only)</h1>
-    
-    <div class="step">
-        <h3>1. Login & Get Code</h3>
-        <button onclick="openAuthPopup()">Open Square Login</button>
-        <p><i>Redirects to 127.0.0.1/?code=... Copy that code.</i></p>
-    </div>
-    
-    <div class="step">
-        <h3>2. Run Automation</h3>
-        <input type="text" id="auth-code" placeholder="Paste Authorization Code Here">
-        <br><br>
-        <button onclick="runFlow()">Generate Token & Create Customer</button>
-    </div>
 
-    <h3>3. Console Output</h3>
-    <pre id="output">Waiting for action...</pre>
-</div>
+<body>
+
+<h1>Login with Square</h1>
+
+<button onclick="loginWithSquare()">Login with Square</button>
+
+<p id="status"></p>
+
+<h3>Authorization Code</h3>
+<input
+    type="text"
+    id="auth-code"
+    placeholder="Authorization code will appear here after login"
+/>
+
+<button onclick="exchangeCode()">Exchange Code & Run MCP</button>
+
+<h3>Console Output</h3>
+<pre id="output">Waiting...</pre>
+
 </body>
 </html>
