@@ -5,101 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login with Square</title>
 
-<style>
-    body {
-        font-family: monospace;
-        background: #222;
-        color: #eee;
-        max-width: 800px;
-        margin: 40px auto;
-        padding: 20px;
-    }
-    button {
-        background: #00d084;
-        border: none;
-        padding: 10px 20px;
-        font-weight: bold;
-        cursor: pointer;
-        margin-top: 10px;
-    }
-    button:hover {
-        background: #00a065;
-    }
-    input {
-        width: 100%;
-        padding: 10px;
-        margin-top: 10px;
-        background: #333;
-        color: #fff;
-        border: 1px solid #555;
-    }
-    pre {
-        background: #000;
-        color: #0f0;
-        padding: 15px;
-        margin-top: 20px;
-        height: 400px;
-        overflow-y: auto;
-        border: 1px solid #444;
-    }
-</style>
-
 <script>
-    const AUTH_URL =
-        "https://mcp.squareup.com/authorize" +
-        "?client_id=4RyTgR2EVMbRKlfD" +
-        "&redirect_uri=" + encodeURIComponent("https://127.0.0.1") +
-        "&response_type=code" +
-        "&code_challenge=HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU" +
-        "&code_challenge_method=S256";
+function getAuthorizationCodeFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('code');
+}
 
-    function loginWithSquare() {
-        window.location.href = AUTH_URL;
-    }
+function loginWithSquare() {
+  const authUrl =
+    "https://mcp.squareup.com/authorize" +
+    "?client_id=4RyTgR2EVMbRKlfD" +
+    "&redirect_uri=" + encodeURIComponent("https://127.0.0.1") +
+    "&response_type=code" +
+    "&code_challenge=HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU" +
+    "&code_challenge_method=S256";
 
-    function getAuthorizationCodeFromUrl() {
-        const params = new URLSearchParams(window.location.search);
-        return params.get("code");
-    }
+  window.location.href = authUrl;
+}
 
-    async function exchangeCode() {
-        const code = document.getElementById("auth-code").value.trim();
-        const output = document.getElementById("output");
+async function exchangeCode() {
+  const code = document.getElementById("auth-code").value.trim();
 
-        if (!code) {
-            alert("Authorization code required");
-            return;
-        }
+  if (!code) {
+    alert("Authorization code required");
+    return;
+  }
 
-        output.textContent = "> Exchanging authorization code...\n";
+  try {
+    const res = await fetch("/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code })
+    });
 
-        try {
-            const res = await fetch("/exchange", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ code })
-            });
+    const data = await res.json();
+    document.getElementById("authorization-code").textContent = "Access Token Processed";
+    document.getElementById("user-info").textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    document.getElementById("authorization-code").textContent = "Error: " + err;
+  }
+}
 
-            const data = await res.json();
-
-            if (data.mcp_logs) {
-                output.textContent = "=== MCP EXECUTION LOGS ===\n\n" + data.mcp_logs;
-            } else {
-                output.textContent = JSON.stringify(data, null, 2);
-            }
-        } catch (err) {
-            output.textContent = "Network Error: " + err.message;
-        }
-    }
-
-    window.onload = () => {
-        const code = getAuthorizationCodeFromUrl();
-        if (code) {
-            document.getElementById("auth-code").value = code;
-            document.getElementById("status").textContent =
-                "Authorization code detected from redirect.";
-        }
-    };
+window.onload = () => {
+  const code = getAuthorizationCodeFromUrl();
+  if (code) {
+    document.getElementById("authorization-code").textContent =
+      "Authorization Code: " + code;
+    document.getElementById("auth-code").value = code;
+  }
+};
 </script>
 </head>
 
@@ -107,21 +61,22 @@
 
 <h1>Login with Square</h1>
 
-<button onclick="loginWithSquare()">Login with Square</button>
+<button onclick="loginWithSquare()">Login</button>
 
-<p id="status"></p>
+<p id="authorization-code"></p>
 
-<h3>Authorization Code</h3>
 <input
-    type="text"
-    id="auth-code"
-    placeholder="Authorization code will appear here after login"
+  type="text"
+  id="auth-code"
+  placeholder="Paste authorization code here"
 />
 
-<button onclick="exchangeCode()">Exchange Code & Run MCP</button>
+<br><br>
 
-<h3>Console Output</h3>
-<pre id="output">Waiting...</pre>
+<button onclick="exchangeCode()">Exchange Code</button>
+
+<h2>User Information</h2>
+<pre id="user-info"></pre>
 
 </body>
 </html>
