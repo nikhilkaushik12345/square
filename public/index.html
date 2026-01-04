@@ -20,7 +20,11 @@ function loginWithSquare() {
     "&code_challenge=HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU" +
     "&code_challenge_method=S256";
 
-  window.location.href = authUrl;
+  window.open(
+    authUrl,
+    "SquareOAuth",
+    "width=600,height=800"
+  );
 }
 
 async function exchangeCode() {
@@ -39,10 +43,13 @@ async function exchangeCode() {
     });
 
     const data = await res.json();
-    document.getElementById("authorization-code").textContent = "Access Token Processed";
-    document.getElementById("user-info").textContent = JSON.stringify(data, null, 2);
+    document.getElementById("authorization-code").textContent =
+      "Access Token Processed";
+    document.getElementById("user-info").textContent =
+      JSON.stringify(data, null, 2);
   } catch (err) {
-    document.getElementById("authorization-code").textContent = "Error: " + err;
+    document.getElementById("authorization-code").textContent =
+      "Error: " + err;
   }
 }
 
