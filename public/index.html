@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Square MCP Automator</title>
+<title>Square MCP Automation</title>
 <style>
     body { font-family: monospace; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #222; color: #eee; }
     .container { background: #333; padding: 2rem; border-radius: 8px; }
     input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; background: #444; color: #fff; border: 1px solid #555; }
-    button { background: #00d084; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+    button { background: #00d084; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; font-size: 1rem; }
     button:hover { background: #00a065; }
-    pre { background: #000; color: #0f0; padding: 1rem; overflow-x: auto; white-space: pre-wrap; height: 400px; overflow-y: scroll; border: 1px solid #444; }
+    pre { background: #000; color: #0f0; padding: 1rem; overflow-x: auto; white-space: pre-wrap; height: 500px; overflow-y: scroll; border: 1px solid #444; }
+    .step { margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 20px; }
 </style>
 <script>
     const CLIENT_ID = "4RyTgR2EVMbRKlfD";
@@ -31,9 +32,9 @@
         const code = document.getElementById("auth-code").value.trim();
         const output = document.getElementById("output");
         
-        if (!code) { alert("Paste code first!"); return; }
+        if (!code) { alert("Please paste the authorization code!"); return; }
         
-        output.textContent = "1. Exchanging Token...\n2. Launching Python MCP Client...\n(This may take a few seconds)...\n";
+        output.textContent = "> Exchanging Token...\n> Connecting to MCP Server (HTTP/2)...\n> Sending 'tools/list'...\n> Sending 'Create Customer'...\n\n(Please wait...)\n";
         
         try {
             const res = await fetch("/exchange", {
@@ -45,29 +46,35 @@
             const data = await res.json();
             
             if (data.mcp_logs) {
-                output.textContent = "=== PYTHON EXECUTION LOGS ===\n" + data.mcp_logs;
+                output.textContent = "=== MCP EXECUTION LOGS ===\n\n" + data.mcp_logs;
             } else {
-                output.textContent = JSON.stringify(data, null, 2);
+                output.textContent = "Error or Unexpected Response:\n" + JSON.stringify(data, null, 2);
             }
         } catch (e) {
-            output.textContent = "Error: " + e.message;
+            output.textContent = "Network Error: " + e.message;
         }
     }
 </script>
 </head>
 <body>
 <div class="container">
-    <h1>Square MCP Auto-Runner</h1>
+    <h1>Square MCP Auto-Runner (Node.js Only)</h1>
     
-    <h3>Step 1: Auth</h3>
-    <button onclick="openAuthPopup()">Open Popup</button>
+    <div class="step">
+        <h3>1. Login & Get Code</h3>
+        <button onclick="openAuthPopup()">Open Square Login</button>
+        <p><i>Redirects to 127.0.0.1/?code=... Copy that code.</i></p>
+    </div>
     
-    <h3>Step 2: Paste Code & Run</h3>
-    <input type="text" id="auth-code" placeholder="Paste code=... here">
-    <button onclick="runFlow()">Generate Token & Run Python</button>
+    <div class="step">
+        <h3>2. Run Automation</h3>
+        <input type="text" id="auth-code" placeholder="Paste Authorization Code Here">
+        <br><br>
+        <button onclick="runFlow()">Generate Token & Create Customer</button>
+    </div>
 
-    <h3>Step 3: Execution Logs</h3>
-    <pre id="output">Waiting...</pre>
+    <h3>3. Console Output</h3>
+    <pre id="output">Waiting for action...</pre>
 </div>
 </body>
 </html>
