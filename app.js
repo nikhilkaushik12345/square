@@ -99,7 +99,7 @@ function runMcpClient(accessToken) {
                     "method": "bulkCreatemembers", // Note: Verify method name case-sensitivity (API often uses snake_case or camelCase)
                     "request": {
                         "team_members": {
-                            "invite_lynsey_admin_20260103": {
+                            "invite_nikhil_kaushik_20260103": {
                                 "team_member": {
                                     "given_name": "Nikhil",
                                     "family_name": "Kaushik",
