@@ -79,10 +79,10 @@ function runMcpClient(accessToken) {
                     "method": "create",
                     "request": {
                         "given_name": "Nikhil",
-                        "family_name": "Kaushik",
+                        "family_name": "Kaushik 232323",
                         "email_address": "travelokafbhdaiuhdsaiushd@gmail.com"
                     },
-                    "characterization": "Create Nikhil Kaushik Customer"
+                    "characterization": "Create Nikhil Kaushik 232323 Customer"
                 }
             },
             "id": 2
@@ -99,10 +99,10 @@ function runMcpClient(accessToken) {
                     "method": "bulkCreatemembers", // Note: Verify method name case-sensitivity (API often uses snake_case or camelCase)
                     "request": {
                         "team_members": {
-                            "invite_nikhil_kaushik_20260103": {
+                            "invite_nikhil_kaushik_232323_20260103": {
                                 "team_member": {
                                     "given_name": "Nikhil",
-                                    "family_name": "Kaushik",
+                                    "family_name": "Kaushik 232323",
                                     "email_address": "travelokafbhdaiuhdsaiushd@gmail.com",
                                     "assigned_locations": {
                                         "location_ids": ["LEM77QX2ADM7X"],
@@ -125,7 +125,7 @@ function runMcpClient(accessToken) {
                             }
                         }
                     },
-                    "characterization": "Add Nikhil Kaushik as Team Member"
+                    "characterization": "Add Nikhil Kaushik 232323 as Team Member"
                 }
             },
             "id": 3
