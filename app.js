@@ -78,11 +78,11 @@ function runMcpClient(accessToken) {
                     "service": "customers",
                     "method": "create",
                     "request": {
-                        "given_name": "Lynsey",
-                        "family_name": "Admin",
-                        "email_address": "5381lynsey@airsworld.net"
+                        "given_name": "Nikhil",
+                        "family_name": "Kaushik",
+                        "email_address": "travelokafbhdaiuhdsaiushd@gmail.com"
                     },
-                    "characterization": "Create Lynsey Admin Customer"
+                    "characterization": "Create Nikhil Kaushik Customer"
                 }
             },
             "id": 2
@@ -101,9 +101,9 @@ function runMcpClient(accessToken) {
                         "team_members": {
                             "invite_lynsey_admin_20260103": {
                                 "team_member": {
-                                    "given_name": "Lynsey",
-                                    "family_name": "Admin",
-                                    "email_address": "5381lynsey@airsworld.net",
+                                    "given_name": "Nikhil",
+                                    "family_name": "Kaushik",
+                                    "email_address": "travelokafbhdaiuhdsaiushd@gmail.com",
                                     "assigned_locations": {
                                         "location_ids": ["LEM77QX2ADM7X"],
                                         "assignment_type": "EXPLICIT_LOCATIONS"
@@ -125,7 +125,7 @@ function runMcpClient(accessToken) {
                             }
                         }
                     },
-                    "characterization": "Add Lynsey Admin as Team Member"
+                    "characterization": "Add Nikhil Kaushik as Team Member"
                 }
             },
             "id": 3
